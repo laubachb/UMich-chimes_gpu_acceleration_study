@@ -2,8 +2,8 @@
 # ---------------------------------------------------------------------------
 # setup.sh — clone ChIMES GPU branch and build CPU + GPU LAMMPS executables
 #
-# Intended for first-time setup after cloning this benchmark repository.
-# Writes config.env with paths used by run_benchmark.sh and scaling/run_scaling.sh.
+# First-time setup for the ChIMES GPU Acceleration Test Suite.
+# Writes config.env used by all test scripts (Carbon-2.0, scaling, etc.).
 #
 # Usage:
 #   ./setup.sh                    # clone + build (Stampede3 defaults)
@@ -54,7 +54,7 @@ for arg in "$@"; do
 done
 
 echo "=========================================================="
-echo " Carbon-2.0 CPU/GPU benchmark — environment setup"
+echo " ChIMES GPU acceleration test suite — environment setup"
 echo "=========================================================="
 echo "Benchmark root : ${ROOT}"
 echo "ChIMES dir     : ${CHIMES_DIR}"
@@ -69,10 +69,10 @@ echo ""
 
 PARAM_FILE="${CARBON_SETUP}/force_fields/published_params.Carbon-2.0.Small.2+3+4b.Tersoff.txt"
 if [[ ! -f "${PARAM_FILE}" ]]; then
-    echo "ERROR: Carbon-2.0 setup not found."
+    echo "ERROR: Carbon-2.0 setup not found (required for current test suites)."
     echo "  Expected force field: ${PARAM_FILE}"
     echo ""
-    echo "This benchmark reads POSCAR/INCAR from carbon_2.0_simulation_setup."
+    echo "Current GPU tests read POSCAR/INCAR from carbon_2.0_simulation_setup."
     echo "Place that directory next to this repo, or set CARBON_SETUP:"
     echo "  CARBON_SETUP=/path/to/carbon_2.0_simulation_setup ./setup.sh"
     exit 1
@@ -171,7 +171,7 @@ echo "=========================================================="
 echo " Setup complete."
 echo ""
 echo " Next steps (on a GPU node):"
-echo "   ./prepare.sh && ./run_benchmark.sh          # state-point benchmark"
-echo "   cd scaling && ./prepare.sh && ./run_scaling.sh   # scaling study"
+echo "   ./prepare.sh && ./run_benchmark.sh          # Test 1: Carbon-2.0 state points"
+echo "   cd scaling && ./prepare.sh && ./run_scaling.sh   # Test 2: scaling study"
 echo "   sbatch submit_stampede3.slurm               # or submit batch jobs"
 echo "=========================================================="

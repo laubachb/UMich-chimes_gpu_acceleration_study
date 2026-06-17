@@ -1,30 +1,30 @@
-# Carbon-2.0 Graphite/Diamond Scaling Study
+# Scaling Test — Graphite & Diamond
 
-Replication benchmark: tile the graphite and diamond unit cells with LAMMPS
-`replicate`, then measure CPU vs GPU **consistency** and **speedup** as a
-function of system size.
+Part of the **ChIMES GPU Acceleration Test Suite**. This test uses Carbon-2.0
+graphite and diamond unit cells as starting structures, then tiles them with
+LAMMPS `replicate` to measure how CPU vs GPU **consistency** and **speedup**
+scale with system size.
 
-This lives under `carbon_2.0_cpu_gpu_benchmark/scaling/` and does not modify
-`carbon_2.0_simulation_setup` or `chimes_calculator-myLLfork`.
+See the [repository README](../README.md) for overall scope, setup, and planned
+future tests (CNP, SMD).
 
 
-## Base systems
+## Base systems (from Carbon-2.0 testbed)
 
 | Phase | Source condition | Base atoms | Replicates | Max atoms |
 |-------|------------------|----------:|------------|----------:|
 | Graphite | `1500K_graph` | 384 | 1×1×1, 2×2×2, 3×3×3 | 10,368 |
 | Diamond | `3000K_diam` | 216 | 1×1×1, 2×2×2, 3×3×3, 4×4×4 | 13,824 |
 
-Each case runs the same protocol as the state-point benchmark:
+Each case uses the same GPU validation protocol as other suite tests:
 - Step-0 per-atom force dump (consistency check)
-- 200 NVE steps at the INCAR `TEBEG` temperature, timestep 0.5 fs
+- 200 NVE steps at INCAR `TEBEG` temperature, timestep 0.5 fs
 - Compare CPU vs GPU within tolerance 1×10⁻³
 
 
 ## Prerequisites
 
-Run `../setup.sh` from the benchmark root first (or ensure `config.env` exists).
-Both LAMMPS binaries must be on disk before running.
+Run `../setup.sh` from the repository root first (or ensure `config.env` exists).
 
 ```bash
 ls -la ../vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes \
@@ -35,7 +35,7 @@ ls -la ../vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes \
 ## Quick start (Stampede3)
 
 ```bash
-cd /work2/09982/blaubach/stampede3/carbon_2.0_cpu_gpu_benchmark/scaling
+cd scaling
 sbatch submit_stampede3.slurm
 ```
 
@@ -73,34 +73,20 @@ Tables per phase showing Natoms, force/thermo PASS/FAIL, CPU time, GPU time,
 speedup, and max |Δf|. Speedup should generally **increase** with replication
 factor as GPU work grows relative to fixed overhead.
 
-Example interpretation:
-- Small cells (64–384 atoms): modest speedup, overhead-dominated
-- Medium cells (~2k–3k atoms): several× speedup
-- Large cells (~10k+ atoms): highest speedup
-
 
 ## Manual use
-
-Prepare only:
 
 ```bash
 python3 scripts/prepare_scaling_runs.py \
     --carbon-setup ../../carbon_2.0_simulation_setup \
     --out-dir statepoints
-```
 
-Summarize after partial runs:
-
-```bash
 python3 scripts/summarize_scaling.py --results-dir results
 ```
 
 
 ## Notes
 
-- Largest graphite case (3×3×3, 10,368 atoms) is the slowest CPU case; the
-  SLURM script requests 6 hours wall time.
-- `replicate` is applied in `in.lammps` after `read_data`, before velocity
-  initialization and force evaluation.
-- To add more replication factors, edit `BASE_SYSTEMS` in
-  `scripts/prepare_scaling_runs.py`.
+- Largest graphite case (3×3×3, 10,368 atoms) is the slowest CPU case; SLURM
+  requests 6 hours wall time.
+- To add replication factors, edit `BASE_SYSTEMS` in `scripts/prepare_scaling_runs.py`.

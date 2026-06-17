@@ -1,17 +1,32 @@
-# Carbon-2.0 CPU vs GPU Benchmark
+# ChIMES GPU Acceleration Test Suite
 
-Standalone benchmark suite that runs ChIMES LAMMPS simulations for each
-**Carbon-2.0 production state point** on both CPU and GPU, then reports:
+Test cases for validating **CUDA GPU acceleration** in the ChIMES LAMMPS
+`pair_style chimesFF`. Each test runs the same simulation on CPU and GPU, then
+reports:
 
-1. **Correctness** — per-atom force consistency at step 0 and thermodynamic
-   property agreement across 200 NVE steps (tolerance 1×10⁻³)
-2. **Performance** — wall-time speedup (CPU loop time / GPU loop time) per
-   condition
+1. **Correctness** — per-atom force consistency and thermodynamic property
+   agreement (tolerance 1×10⁻³)
+2. **Performance** — wall-time speedup (CPU loop time / GPU loop time)
 
-This directory is **independent** of `carbon_2.0_simulation_setup` and the
-ChIMES calculator source. It reads structures and temperatures from the carbon
-setup (read-only) and builds/runs against a cloned ChIMES branch under
-`vendor/chimes_calculator/`.
+This repository is the home for GPU regression and benchmarking workflows.
+**Carbon-2.0 state points are the initial testbed** — not the long-term scope of
+the project. Planned additions include **carbon nanoparticle (CNP)** and **SMD**
+simulation test cases.
+
+
+## Test catalog
+
+| Test | Status | Location | What it exercises |
+|------|--------|----------|-----------------|
+| Carbon-2.0 state points | **Available** | `./` (this directory) | GPU correctness and speedup across 5 production P–T conditions |
+| Graphite/diamond scaling | **Available** | `scaling/` | Consistency and speedup vs. system size (`replicate`) |
+| Carbon nanoparticle (CNP) | Planned | TBD | Larger / more complex carbon systems |
+| SMD simulations | Planned | TBD | Production-style MD workloads |
+
+All current tests read input structures from `carbon_2.0_simulation_setup`
+(read-only) and run against a cloned ChIMES GPU branch under
+`vendor/chimes_calculator/`. Future test suites may pull inputs from other
+sources following the same CPU-vs-GPU comparison pattern.
 
 
 ## First-time setup
@@ -23,17 +38,17 @@ and CUDA (e.g. Stampede3 login node):
 git clone git@github.com:laubachb/UMich-chimes_gpu_acceleration.git
 cd UMich-chimes_gpu_acceleration
 
-# Place carbon_2.0_simulation_setup next to this repo, or set CARBON_SETUP
+# Carbon-2.0 inputs required for current tests; place alongside repo or set CARBON_SETUP
 ./setup.sh
 ```
 
 `setup.sh` will:
 
-1. Verify `carbon_2.0_simulation_setup` is available (POSCAR/INCAR + force field)
+1. Verify `carbon_2.0_simulation_setup` is available (needed for current tests)
 2. Clone `laubachb/chimes_calculator-myLLfork` branch `laubachb/gpu-acceleration`
    into `vendor/chimes_calculator/`
 3. Build `lmp_mpi_chimes` (CPU) and `lmp_mpi_chimes_gpu` (GPU)
-4. Write `config.env` with all paths for the benchmark scripts
+4. Write `config.env` with paths for all test scripts
 
 Options:
 
@@ -46,10 +61,14 @@ CHIMES_DIR=/path/to/existing/chimes ./setup.sh --skip-clone
 ```
 
 On Stampede3, GPU builds use `hosttype=UT-TACC` inside `install_gpu.sh` to work
-around the impi-vs-cuda module conflict (see ChIMES `etc/lmp/install_gpu.sh`).
+around the impi-vs-cuda module conflict.
 
 
-## State points
+## Test 1: Carbon-2.0 state points (initial testbed)
+
+The first GPU validation suite uses five **Carbon-2.0 production conditions**
+as a chemically diverse baseline: graphite, diamond, and melt densities from
+1–3.6 g/cc at 1500–8000 K.
 
 | State point | Atoms | T (K) | Source |
 |-------------|------:|------:|--------|
@@ -59,31 +78,17 @@ around the impi-vs-cuda module conflict (see ChIMES `etc/lmp/install_gpu.sh`).
 | `6000K_3.6gcc` | 200 | 6000 | `.../6000K_3.6gcc/` |
 | `8000K_3.0gcc` | 64 | 8000 | `.../8000K_3.0gcc/` |
 
-Each run uses the POSCAR geometry, `TEBEG` temperature from INCAR, Carbon-2.0
-(2+3+4B Tersoff) parameters, timestep 0.5 fs, and 200 NVE steps after a
-step-0 force dump.
+Each case: POSCAR geometry, INCAR `TEBEG` temperature, Carbon-2.0 (2+3+4B
+Tersoff) parameters, timestep 0.5 fs, step-0 force dump, then 200 NVE steps.
 
 
-## Prerequisites
-
-If you have not run `./setup.sh` yet, both LAMMPS binaries must be built manually
-in a ChIMES checkout (see **First-time setup** above). After setup:
+### Run (Stampede3)
 
 ```bash
-ls -la vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes \
-         vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes_gpu
-```
-
-
-## Quick start (Stampede3)
-
-```bash
-cd carbon_2.0_cpu_gpu_benchmark   # or UMich-chimes_gpu_acceleration
-
 # First time only:
 ./setup.sh
 
-# Batch (recommended)
+# Batch
 sbatch submit_stampede3.slurm
 
 # Or interactive on a GPU node
@@ -94,8 +99,7 @@ module load intel/24.0 impi/21.11 gcc/13.2.0 cuda/12.8 python/3.12.11
 ./run_benchmark.sh
 ```
 
-
-## Workflow
+### Workflow
 
 ```
 prepare.sh
@@ -112,33 +116,38 @@ run_benchmark.sh
 ```
 
 
+## Test 2: Graphite/diamond scaling study
+
+Under `scaling/`, graphite and diamond unit cells from the Carbon-2.0 testbed
+are replicated with LAMMPS `replicate` to measure how GPU speedup and
+consistency scale with atom count. See `scaling/README.md`.
+
+```bash
+cd scaling
+sbatch submit_stampede3.slurm
+```
+
+
 ## Directory layout
 
 ```
-carbon_2.0_cpu_gpu_benchmark/
+UMich-chimes_gpu_acceleration/
   README.md
   setup.sh                 # clone ChIMES + build CPU/GPU binaries + config.env
-  config.env.example       # path template (setup.sh writes config.env)
-  prepare.sh               # generate LAMMPS inputs from carbon setup
-  run_benchmark.sh         # run all state points CPU + GPU
+  config.env.example
+  prepare.sh               # Carbon-2.0 test: generate LAMMPS inputs
+  run_benchmark.sh         # Carbon-2.0 test: run all state points
   submit_stampede3.slurm
-  scripts/
-    poscar_to_lammps.py    # POSCAR → LAMMPS data
-    prepare_statepoints.py
-    compare_statepoint.py  # single-state-point analysis
-    summarize_results.py   # aggregate table across conditions
-  statepoints/             # generated inputs (gitignored)
-  results/                 # run outputs (gitignored)
-    <statepoint>/
-      cpu/  gpu/
-      summary.json
-    SUMMARY.md
+  scripts/                 # shared comparison utilities
+  statepoints/             # Carbon-2.0 generated inputs (gitignored)
+  results/               # Carbon-2.0 run outputs (gitignored)
+  scaling/               # scaling test suite
 ```
 
 
 ## Output interpretation
 
-### Per state point (`results/<name>/summary.json`)
+### Per test case (`results/<name>/summary.json`)
 
 - `force_pass` — max per-atom |Δf| for fx/fy/fz at step 0 ≤ tolerance
 - `thermo_pass` — all thermo output steps agree within tolerance
@@ -148,57 +157,36 @@ carbon_2.0_cpu_gpu_benchmark/
 
 ### Suite summary (`results/SUMMARY.md`)
 
-Markdown table of consistency and speedup across all conditions.
+Markdown table of consistency and speedup across all Carbon-2.0 conditions.
 
 
 ## Scripts (manual use)
-
-Prepare one or all state points:
 
 ```bash
 python3 scripts/prepare_statepoints.py \
     --carbon-setup ../carbon_2.0_simulation_setup \
     --out-dir statepoints
-```
 
-Compare a single pair of runs:
-
-```bash
 python3 scripts/compare_statepoint.py \
     --name 2000K_1.0gcc \
     --cpu-dir results/2000K_1.0gcc/cpu \
     --gpu-dir results/2000K_1.0gcc/gpu \
     --tol 1e-3 \
     --json-out results/2000K_1.0gcc/summary.json
-```
 
-Aggregate:
-
-```bash
 python3 scripts/summarize_results.py --results-dir results
 ```
 
 
 ## Notes
 
-- **Read-only upstream**: this suite never writes into `carbon_2.0_simulation_setup`
+- **Read-only upstream**: tests never write into `carbon_2.0_simulation_setup`
   or the cloned ChIMES tree under `vendor/chimes_calculator/`.
-- **Module conflict on Stampede3**: see
-  `chimes_calculator-myLLfork/etc/lmp/install_gpu.sh` — use `hosttype=UT-TACC`
-  when building the GPU binary on login nodes.
-- **Runtime modules**: sequential `module load intel impi gcc cuda` works on GPU
-  compute nodes (as in `submit_stampede3.slurm`).
-- Speedup varies with atom count and thermodynamic condition; larger systems
-  generally show higher GPU benefit.
-
-
-## Scaling study (graphite & diamond)
-
-`scaling/` replicates the graphite (`1500K_graph`, 384 atoms) and diamond
-(`3000K_diam`, 216 atoms) unit cells via LAMMPS `replicate` and measures
-consistency and speedup vs. system size. See `scaling/README.md`.
-
-```bash
-cd scaling
-sbatch submit_stampede3.slurm
-```
+- **Module conflict on Stampede3**: use `hosttype=UT-TACC` when building the GPU
+  binary on login nodes (`vendor/chimes_calculator/etc/lmp/install_gpu.sh`).
+- **Runtime modules**: sequential `module load intel impi gcc cuda` on GPU nodes.
+- Speedup varies with atom count and interaction complexity; larger systems
+  generally benefit more from GPU acceleration.
+- **Adding new tests**: follow the same pattern — `prepare` inputs, run CPU and
+  GPU binaries, compare with `scripts/compare_statepoint.py`, summarize results.
+  CNP and SMD suites will be added as separate directories when ready.
