@@ -1,0 +1,16 @@
+# Run outputs
+results/
+slurm-*.out
+slurm-*.err
+
+# Local config (may contain allocation-specific paths)
+config.env
+
+# Prepared inputs can be regenerated with ./prepare.sh
+statepoints/
+
+# Scaling study outputs
+scaling/results/
+scaling/statepoints/
+scaling/slurm-*.out
+scaling/slurm-*.err
