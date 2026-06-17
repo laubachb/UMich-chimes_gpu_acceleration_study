@@ -8,9 +8,45 @@ Standalone benchmark suite that runs ChIMES LAMMPS simulations for each
 2. **Performance** — wall-time speedup (CPU loop time / GPU loop time) per
    condition
 
-This directory is **independent** of `carbon_2.0_simulation_setup` and
-`chimes_calculator-myLLfork`. It reads structures and temperatures from the
-carbon setup (read-only) but writes all inputs and results here.
+This directory is **independent** of `carbon_2.0_simulation_setup` and the
+ChIMES calculator source. It reads structures and temperatures from the carbon
+setup (read-only) and builds/runs against a cloned ChIMES branch under
+`vendor/chimes_calculator/`.
+
+
+## First-time setup
+
+After cloning this repository, run `setup.sh` on a machine with git, Intel MPI,
+and CUDA (e.g. Stampede3 login node):
+
+```bash
+git clone git@github.com:laubachb/UMich-chimes_gpu_acceleration.git
+cd UMich-chimes_gpu_acceleration
+
+# Place carbon_2.0_simulation_setup next to this repo, or set CARBON_SETUP
+./setup.sh
+```
+
+`setup.sh` will:
+
+1. Verify `carbon_2.0_simulation_setup` is available (POSCAR/INCAR + force field)
+2. Clone `laubachb/chimes_calculator-myLLfork` branch `laubachb/gpu-acceleration`
+   into `vendor/chimes_calculator/`
+3. Build `lmp_mpi_chimes` (CPU) and `lmp_mpi_chimes_gpu` (GPU)
+4. Write `config.env` with all paths for the benchmark scripts
+
+Options:
+
+```bash
+./setup.sh --skip-clone     # ChIMES already cloned or using CHIMES_DIR
+./setup.sh --skip-build     # only clone and write config.env
+CUDA_ARCH=90 ./setup.sh     # H100 instead of default 120 (Blackwell)
+CARBON_SETUP=/path/to/carbon_2.0_simulation_setup ./setup.sh
+CHIMES_DIR=/path/to/existing/chimes ./setup.sh --skip-clone
+```
+
+On Stampede3, GPU builds use `hosttype=UT-TACC` inside `install_gpu.sh` to work
+around the impi-vs-cuda module conflict (see ChIMES `etc/lmp/install_gpu.sh`).
 
 
 ## State points
@@ -30,36 +66,22 @@ step-0 force dump.
 
 ## Prerequisites
 
-Both LAMMPS binaries must be built in `chimes_calculator-myLLfork` (not modified
-by this suite):
+If you have not run `./setup.sh` yet, both LAMMPS binaries must be built manually
+in a ChIMES checkout (see **First-time setup** above). After setup:
 
 ```bash
-cd ../chimes_calculator-myLLfork/etc/lmp
-
-# CPU binary
-module purge && module load intel/24.0 impi/21.11
-./install.sh
-
-# GPU binary (Stampede3 Blackwell example)
-export hosttype=UT-TACC
-./install_gpu.sh 120
-```
-
-Verify:
-
-```bash
-ls -la ../chimes_calculator-myLLfork/etc/lmp/exe/lmp_mpi_chimes \
-         ../chimes_calculator-myLLfork/etc/lmp/exe/lmp_mpi_chimes_gpu
+ls -la vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes \
+         vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes_gpu
 ```
 
 
 ## Quick start (Stampede3)
 
 ```bash
-cd /work2/09982/blaubach/stampede3/carbon_2.0_cpu_gpu_benchmark
+cd carbon_2.0_cpu_gpu_benchmark   # or UMich-chimes_gpu_acceleration
 
-# Optional: copy and edit paths/allocation
-cp config.env.example config.env
+# First time only:
+./setup.sh
 
 # Batch (recommended)
 sbatch submit_stampede3.slurm
@@ -95,7 +117,8 @@ run_benchmark.sh
 ```
 carbon_2.0_cpu_gpu_benchmark/
   README.md
-  config.env.example       # path template (copy to config.env)
+  setup.sh                 # clone ChIMES + build CPU/GPU binaries + config.env
+  config.env.example       # path template (setup.sh writes config.env)
   prepare.sh               # generate LAMMPS inputs from carbon setup
   run_benchmark.sh         # run all state points CPU + GPU
   submit_stampede3.slurm
@@ -159,7 +182,7 @@ python3 scripts/summarize_results.py --results-dir results
 ## Notes
 
 - **Read-only upstream**: this suite never writes into `carbon_2.0_simulation_setup`
-  or `chimes_calculator-myLLfork`.
+  or the cloned ChIMES tree under `vendor/chimes_calculator/`.
 - **Module conflict on Stampede3**: see
   `chimes_calculator-myLLfork/etc/lmp/install_gpu.sh` — use `hosttype=UT-TACC`
   when building the GPU binary on login nodes.

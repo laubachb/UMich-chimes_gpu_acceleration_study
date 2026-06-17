@@ -6,6 +6,9 @@ slurm-*.err
 # Local config (may contain allocation-specific paths)
 config.env
 
+# Cloned ChIMES calculator (created by setup.sh)
+vendor/
+
 # Prepared inputs can be regenerated with ./prepare.sh
 statepoints/
 

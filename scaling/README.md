@@ -23,11 +23,12 @@ Each case runs the same protocol as the state-point benchmark:
 
 ## Prerequisites
 
-Both LAMMPS binaries must already be built (see `../README.md`):
+Run `../setup.sh` from the benchmark root first (or ensure `config.env` exists).
+Both LAMMPS binaries must be on disk before running.
 
 ```bash
-ls -la ../chimes_calculator-myLLfork/etc/lmp/exe/lmp_mpi_chimes \
-         ../chimes_calculator-myLLfork/etc/lmp/exe/lmp_mpi_chimes_gpu
+ls -la ../vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes \
+         ../vendor/chimes_calculator/etc/lmp/exe/lmp_mpi_chimes_gpu
 ```
 
 
